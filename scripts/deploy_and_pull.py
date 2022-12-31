@@ -1,6 +1,7 @@
 from scripts.helpful_scripts import get_account
 from brownie import (
     RussianRoulette,
+    VRFCoordinatorMock,
     interface,
     network,
     config,
@@ -59,15 +60,17 @@ def balanceIs(account, token=None):
     return balanceIsInner
 
 
-def deploy(contract):
+def deployMock(contract):
     account = get_account(index=-2)
-    deployedContract = contract.deploy({"from": account})
+    deployedContract = contract.deploy(
+        config["networks"][network.show_active()]["link"], {"from": account}
+    )
     time.sleep(1)
     return deployedContract
 
 
 # @printTxInfo
-# @balanceIs(get_account(index=-2), token="dai")
+@balanceIs(get_account(index=-2), token="dai")
 def pull(contract, amount, tokenAddress):
     account = get_account(index=-2)
     tx = contract.pull(amount, tokenAddress, {"from": account})
@@ -81,21 +84,56 @@ def approveToken(tokenAddress, approveAddress, amount):
     return tx
 
 
+def fundWithLink(contractAddress, amount):
+    account = get_account(index=-2)
+    link = interface.IERC20(config["networks"][network.show_active()]["link"])
+    tx = link.transfer(contractAddress, amount, {"from": account})
+    return tx
+
+
+def deploy(contract, vrfCoordinator, link, keyhash, fee):
+    account = get_account(index=-2)
+    deployedContract = contract.deploy(
+        vrfCoordinator, link, keyhash, fee, {"from": account}
+    )
+    time.sleep(1)
+    return deployedContract
+
+
 def main():
     account = get_account(index=-2)
     DAI = config["networks"][network.show_active()]["dai"]
     amount = Web3.toWei(100, "ether")
 
-    DAIContract = interface.IERC20(DAI)
-    print(
-        f"DAI balance is {Web3.fromWei(DAIContract.balanceOf(account.address), 'ether')}"
+    mockVRF = deployMock(VRFCoordinatorMock)
+
+    RR = deploy(
+        RussianRoulette,
+        mockVRF.address,
+        config["networks"][network.show_active()]["link"],
+        "0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc",
+        Web3.toWei(0.1, "ether"),
     )
 
-    RR = deploy(RussianRoulette)
+    txFund = fundWithLink(RR, Web3.toWei(1, "ether"))
 
-    approveToken(DAI, RR.address, amount)
+    txApprove = approveToken(DAI, RR.address, amount)
 
     txPull = pull(RR, amount, DAI)
-    txPull.wait(1)
+    STATIC_RNG = 601
+    request_id = txPull.events["RequestRandomness"]["requestId"]
 
-    print(f"DAI balance is {Web3.fromWei(DAIContract.balanceOf(RR.address), 'ether')}")
+    txRNG = mockVRF.callBackWithRandomness(
+        request_id, STATIC_RNG, RR.address, {"from": account}
+    )
+
+    txRNG.wait(1)
+
+    token_contract = interface.IERC20(DAI)
+    print(
+        f"RR DAI balance is {Web3.fromWei(token_contract.balanceOf(RR.address), 'ether')}"
+    )
+
+    print(
+        f"User DAI balance is {Web3.fromWei(token_contract.balanceOf(account.address), 'ether')}"
+    )
