@@ -5,6 +5,7 @@ dependencies:
   - Uniswap/v3-periphery@1.3.0
   - Uniswap/v3-core@1.0.0
   - smartcontractkit/chainlink-brownie-contracts@0.4.0
+  - smartcontractkit/chainlink@1.10.0
 compiler:
   solc:
     version: 0.7.6
@@ -13,7 +14,8 @@ compiler:
       - '@uniswapv2=Uniswap/v2-periphery@1.0.0-beta.0'
       - '@uniswapv3=Uniswap/v3-periphery@1.3.0'
       - '@uniswap/v3-core=Uniswap/v3-core@1.0.0'
-      - '@chainlink=smartcontractkit/chainlink-brownie-contracts@0.4.0'
+      - '@chainlinksck=smartcontractkit/chainlink-brownie-contracts@0.4.0'
+      - '@chainlink=smartcontractkit/chainlink@1.10.0'
 dotenv: .env
 networks:
   default: development
@@ -34,5 +36,10 @@ networks:
     uniswap_router_v2: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
     weth: '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6'
     dai: '0xdc31Ee1784292379Fbb2964b3B9C4124D8F89C60'
+    link: '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
+    keyhash: '0x0476f9a745b61ea5c0ab224d3a6e4c99f0b02fce4da01143a4f70aa80ae76e8a'
+    vrf_coordinator: '0x2bce784e69d2Ff36c71edcB9F88358dB0DfB55b4'
+    fee: 0.1
+
 wallets:
   from_key: ${PRIVATE_KEY}
