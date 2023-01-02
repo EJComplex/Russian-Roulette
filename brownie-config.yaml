@@ -32,6 +32,9 @@ networks:
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
     link: '0x514910771AF9Ca656af840dff83E8264EcF986CA'
     usdc_dai_pool: '0x5777d92f208679db4b9778590fa3cab3ac9e2168'
+    vrf_coordinator: '0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc'
+    fee: 0.1
+    amount_in: 100
   goerli:
     uniswap_router_v2: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
     weth: '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6'
@@ -40,6 +43,7 @@ networks:
     keyhash: '0x0476f9a745b61ea5c0ab224d3a6e4c99f0b02fce4da01143a4f70aa80ae76e8a'
     vrf_coordinator: '0x2bce784e69d2Ff36c71edcB9F88358dB0DfB55b4'
     fee: 0.1
+    amount_in: 100
 
 wallets:
   from_key: ${PRIVATE_KEY}

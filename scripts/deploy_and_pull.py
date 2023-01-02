@@ -11,8 +11,6 @@ from brownie import (
 
 import time
 from web3 import Web3
-import pandas as pd
-import numpy as np
 
 # Decorator to print tx.info() after transaction
 def printTxInfo(func):
@@ -62,8 +60,8 @@ def balanceIs(account, token=None):
     return balanceIsInner
 
 
-def deployMock(contract):
-    account = get_account(index=-2)
+def deployMock(account, contract):
+    # account = get_account(index=index)
     deployedContract = contract.deploy(
         config["networks"][network.show_active()]["link"], {"from": account}
     )
@@ -73,34 +71,39 @@ def deployMock(contract):
 
 # @printTxInfo
 # @balanceIs(get_account(index=-2), token="dai")
-def pull(contract, amount, tokenAddress):
-    # account = get_account(index=-2)
-    account = accounts.add(config["wallets"]["from_key"])
+def pull(account, contract, amount, tokenAddress):
+    # account = get_account(index=index)
+    # account = accounts.add(config["wallets"]["from_key"])
     tx = contract.pull(amount, tokenAddress, {"from": account, "gas_limit": 1000000})
     return tx
 
 
-def approveToken(tokenAddress, approveAddress, amount):
-    # account = get_account(index=-2)
-    account = accounts.add(config["wallets"]["from_key"])
+def approveToken(account, tokenAddress, approveAddress, amount):
+    # account = get_account(index=index)
+    # account = accounts.add(config["wallets"]["from_key"])
     token = interface.IERC20(tokenAddress)
     tx = token.approve(approveAddress, amount, {"from": account})
     return tx
 
 
-def fundWithLink(contractAddress, amount):
-    # account = get_account(index=-2)
-    account = accounts.add(config["wallets"]["from_key"])
+def fundWithLink(account, contractAddress, amount):
+    # account = get_account(index=index)
+    # account = accounts.add(config["wallets"]["from_key"])
     link = interface.IERC20(config["networks"][network.show_active()]["link"])
     tx = link.transfer(contractAddress, amount, {"from": account})
     return tx
 
 
-def deploy(contract, vrfCoordinator, link, keyhash, fee):
-    # account = get_account(index=-2)
-    account = accounts.add(config["wallets"]["from_key"])
+def deploy(account, contract, vrfCoordinator, link, keyhash, fee, publish_source=False):
+    # account = get_account(index=index)
+    # account = accounts.add(config["wallets"]["from_key"])
     deployedContract = contract.deploy(
-        vrfCoordinator, link, keyhash, fee, {"from": account}, publish_source=True
+        vrfCoordinator,
+        link,
+        keyhash,
+        fee,
+        {"from": account},
+        publish_source=publish_source,
     )
     time.sleep(1)
     return deployedContract
@@ -112,21 +115,26 @@ def deploy(contract, vrfCoordinator, link, keyhash, fee):
 #     DAI = config["networks"][network.show_active()]["dai"]
 #     amount = Web3.toWei(100, "ether")
 
-#     mockVRF = deployMock(VRFCoordinatorMock)
+#     mockVRF = deployMock(account, VRFCoordinatorMock)
 
 #     RR = deploy(
+#         account,
 #         RussianRoulette,
 #         mockVRF.address,
 #         config["networks"][network.show_active()]["link"],
-#         "0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc",
-#         Web3.toWei(0.1, "ether"),
+#         config["networks"][network.show_active()]["vrf_coordinator"],
+#         Web3.toWei(config["networks"][network.show_active()]["fee"], "ether"),
 #     )
 
-#     txFund = fundWithLink(RR, Web3.toWei(1, "ether"))
+#     txFund = fundWithLink(
+#         account,
+#         RR,
+#         Web3.toWei(config["networks"][network.show_active()]["fee"], "ether"),
+#     )
 
-#     txApprove = approveToken(DAI, RR.address, amount)
+#     txApprove = approveToken(account, DAI, RR.address, amount)
 
-#     txPull = pull(RR, amount, DAI)
+#     txPull = pull(account, RR, amount, DAI)
 #     STATIC_RNG = 601
 #     request_id = txPull.events["RequestRandomness"]["requestId"]
 
@@ -154,32 +162,39 @@ def main():
     # mockVRF = deployMock(VRFCoordinatorMock)
 
     # RR = deploy(
+    #     account,
     #     RussianRoulette,
     #     config["networks"][network.show_active()]["vrf_coordinator"],
     #     config["networks"][network.show_active()]["link"],
     #     config["networks"][network.show_active()]["keyhash"],
     #     Web3.toWei(config["networks"][network.show_active()]["fee"], "ether"),
+    #     publish_source=True,
     # )
 
     RR = Contract.from_abi(
         RussianRoulette._name,
-        "0x3170413F40142A6E2BAEC6D24c3F75a799B7ffaE",
+        "0x200c3D8b240391D06ea3f96cF31C79Ba6458CDa8",
         RussianRoulette.abi,
     )
 
-    txFund = fundWithLink(RR, Web3.toWei(0.1, "ether"))
+    txFund = fundWithLink(account, RR, Web3.toWei(1, "ether"))
 
-    txApprove = approveToken(DAI, RR.address, amount)
+    txApprove = approveToken(account, DAI, RR.address, 10 * amount)
 
-    txPull = pull(RR, amount, DAI)
+    i = 0
+    while i < 10:
+        txPull = pull(account, RR, amount, DAI)
+        i += 1
+
     # STATIC_RNG = 601
     request_id = txPull.events["RequestRandomness"]["requestId"]
+    print(request_id)
 
     # txRNG = mockVRF.callBackWithRandomness(
     #    request_id, STATIC_RNG, RR.address, {"from": account}
     # )
 
-    # txRNG.wait(1)
+    txPull.wait(10)
 
     token_contract = interface.IERC20(DAI)
     print(
@@ -189,3 +204,11 @@ def main():
     print(
         f"User DAI balance is {Web3.fromWei(token_contract.balanceOf(account.address), 'ether')}"
     )
+
+    print()
+
+
+# # Need to update deploy and pull to be basic functionality. Create unit and inegration tests.
+# # Need to redeploy since v2 contracts are set in constructor
+# # Need to add to contract where if random fails, then funds returned
+# # How is the link token being approved?

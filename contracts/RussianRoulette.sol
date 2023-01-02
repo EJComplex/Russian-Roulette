@@ -30,6 +30,7 @@ contract RussianRoulette is VRFConsumerBase {
     bytes32 public keyhash;
     uint256 public fee;
     event RequestRandomness(bytes32 requestId);
+    event PostRandomNumber(uint256 randomness);
 
     constructor(
         address _vrfCoordinator,
@@ -68,6 +69,7 @@ contract RussianRoulette is VRFConsumerBase {
         } else {
             IERC20(requestIdToToken[_requestId]).transfer(requestIdToSender[_requestId], requestIdToAmount[_requestId]);
         }
+        emit PostRandomNumber(_randomness);
     }
 
 
