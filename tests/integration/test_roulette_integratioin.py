@@ -17,6 +17,7 @@ import pytest
 # test a random number that is divisible by 6. User should lose amount in, contract should burn amount in.
 # mainnet-fork with index=-2 unlocked
 # tested token is DAI
+@pytest.mark.require_network("goerli")
 def test_positive_pull():
     # Arrange
     account = get_account()
@@ -78,6 +79,7 @@ def test_positive_pull():
     )
 
 
+@pytest.mark.require_network("goerli")
 def test_negative_pull():
     # Arrange
     account = get_account()

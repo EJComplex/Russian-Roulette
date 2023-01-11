@@ -14,7 +14,6 @@ contract RussianRoulette is VRFConsumerBase {
     // Considerations? make function that burns/calls vrf internal/private
     // If accepting any token, could a malicious token break contract?
     // add events
-    // set vrfcoordinator address to constant, change to router if needed
     // inherit vrfconsumerbase for now, keeping with examples
     // line 68 vrfconsumerbase security considerations
     // what to do if randomness is not found? send tokens back
@@ -29,6 +28,7 @@ contract RussianRoulette is VRFConsumerBase {
     address public burnAddress = 0x0000000000000000000000000000000000000000;
     bytes32 public keyhash;
     uint256 public fee;
+
     event RequestRandomness(bytes32 requestId);
     event PostRandomNumber(uint256 randomness);
 
@@ -69,7 +69,7 @@ contract RussianRoulette is VRFConsumerBase {
         } else {
             IERC20(requestIdToToken[_requestId]).transfer(requestIdToSender[_requestId], requestIdToAmount[_requestId]);
         }
-        emit PostRandomNumber(_randomness);
+        emit PostRandomNumber(_randomness % 6);
     }
 
 
