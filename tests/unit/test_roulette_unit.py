@@ -9,8 +9,18 @@ from brownie import (
 from web3 import Web3
 import pytest
 
+# For global marker
+pytestmark = [pytest.mark.require_network("mainnet-fork")]
 
-@pytest.fixture
+# deploy erc-20 and mint to account
+def token(ERC20Token):
+    account = get_account(index=-2)
+    token = account.deploy(ERC20Token, Web3.toWei(1000, "ether"))
+    return token
+
+
+# module wide deploy and mock.
+@pytest.fixture(scope="module", autouse=True)
 def default_deploy_and_mock(VRFCoordinatorMock, RussianRoulette, interface):
     account = get_account(index=-2)
     mockVRF = deployMock(account, VRFCoordinatorMock)
@@ -43,19 +53,32 @@ def default_deploy_and_mock(VRFCoordinatorMock, RussianRoulette, interface):
     return account, mockVRF, RR, DAI, amount, token_contract, starting_token_balance
 
 
+@pytest.fixture(autouse=True)
+def isolation(fn_isolation):
+    pass
+
+
 # test a random number that is divisible by 6. User should lose amount in, contract should burn amount in.
 # mainnet-fork with index=-2 unlocked
 # tested token is DAI
-@pytest.mark.require_network("mainnet-fork")
-def test_positive_pull(default_deploy_and_mock):
+# @pytest.mark.require_network("mainnet-fork")
+@pytest.mark.parametrize("RNG", [600, 601])
+def test_positive_pull(default_deploy_and_mock, RNG):
     # Arrange
-    account, mockVRF, RR, DAI, amount, token_contract, starting_token_balance = [
-        default_deploy_and_mock[i] for i in range(len(default_deploy_and_mock))
-    ]
+
+    (
+        account,
+        mockVRF,
+        RR,
+        DAI,
+        amount,
+        token_contract,
+        starting_token_balance,
+    ) = default_deploy_and_mock
 
     # Act
     txPull = pull(account, RR, amount, DAI)
-    STATIC_RNG = 601
+    # STATIC_RNG = 601
     request_id = txPull.events["RequestRandomness"]["requestId"]
 
     # Assert contract balance == amount in. Assert user balance is amount in less.
@@ -71,52 +94,34 @@ def test_positive_pull(default_deploy_and_mock):
     # can mock since vrfCoordinator is the only address that can call rawFullfillRandomness
     # mockVRF is deployed before RR, so mockVRF address can be input for RR constructor
     txRNG = mockVRF.callBackWithRandomness(
-        request_id, STATIC_RNG, RR.address, {"from": account}
+        request_id, RNG, RR.address, {"from": account}
     )
 
     txRNG.wait(1)
 
     # Assert contract balance is 0, token returned. Assert user balance == starting balance, tokens returned.
-    assert Web3.fromWei(token_contract.balanceOf(RR.address), "ether") == 0
-    assert (
-        Web3.fromWei(token_contract.balanceOf(account.address), "ether")
-        == starting_token_balance
-    )
-
-
-@pytest.mark.require_network("mainnet-fork")
-def test_negative_pull(default_deploy_and_mock):
-    # Arrange
-    account, mockVRF, RR, DAI, amount, token_contract, starting_token_balance = [
-        default_deploy_and_mock[i] for i in range(len(default_deploy_and_mock))
-    ]
-
-    # Act
-    txPull = pull(account, RR, amount, DAI)
-    STATIC_RNG = 600
-    request_id = txPull.events["RequestRandomness"]["requestId"]
-
-    # Assert contract balance == amount in. Assert user balance is amount in less.
-    assert (
-        Web3.fromWei(token_contract.balanceOf(RR.address), "ether")
-        == config["networks"][network.show_active()]["amount_in"]
-    )
-    assert (
-        starting_token_balance
-        - Web3.fromWei(token_contract.balanceOf(account.address), "ether")
-    ) == config["networks"][network.show_active()]["amount_in"]
-
-    # can mock since vrfCoordinator is the only address that can call rawFullfillRandomness
-    # mockVRF is deployed before RR, so mockVRF address can be input for RR constructor
-    txRNG = mockVRF.callBackWithRandomness(
-        request_id, STATIC_RNG, RR.address, {"from": account}
-    )
-
-    txRNG.wait(1)
+    if RNG % 6 != 0:
+        assert Web3.fromWei(token_contract.balanceOf(RR.address), "ether") == 0
+        assert (
+            Web3.fromWei(token_contract.balanceOf(account.address), "ether")
+            == starting_token_balance
+        )
 
     # Assert contract balance is 0, token burned. Assert user balance == starting balance less amount in.
-    assert Web3.fromWei(token_contract.balanceOf(RR.address), "ether") == 0
-    assert (
-        starting_token_balance
-        - Web3.fromWei(token_contract.balanceOf(account.address), "ether")
-    ) == config["networks"][network.show_active()]["amount_in"]
+    else:
+        assert Web3.fromWei(token_contract.balanceOf(RR.address), "ether") == 0
+        assert (
+            starting_token_balance
+            - Web3.fromWei(token_contract.balanceOf(account.address), "ether")
+        ) == config["networks"][network.show_active()]["amount_in"]
+
+
+# test the fn_isolation works
+def test_transfer(accounts):
+    starting_balance = accounts[1].balance()
+    accounts[0].transfer(accounts[1], "10 ether")
+    assert (accounts[1].balance() - starting_balance) == Web3.toWei(10, "ether")
+
+
+def test_chain_reverted(accounts):
+    assert accounts[0].balance() == accounts[1].balance()
