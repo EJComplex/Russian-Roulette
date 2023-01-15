@@ -62,8 +62,8 @@ def isolation(fn_isolation):
 # mainnet-fork with index=-2 unlocked
 # tested token is DAI
 # @pytest.mark.require_network("mainnet-fork")
-@pytest.mark.parametrize("RNG", [600, 601])
-def test_positive_pull(default_deploy_and_mock, RNG):
+@pytest.mark.parametrize("RNG", [600, 601, 0])
+def test_pull(default_deploy_and_mock, RNG, chain):
     # Arrange
 
     (
@@ -99,8 +99,19 @@ def test_positive_pull(default_deploy_and_mock, RNG):
 
     txRNG.wait(1)
 
+    # Assert contract balance is 0, token returned. Assert user balance == starting balance, tokens returned. Due to randomness not found
+    if RNG == 0:
+        chain.mine(51)
+        txReturn = RR.returnToken(request_id, {"from": account})
+        assert Web3.fromWei(token_contract.balanceOf(RR.address), "ether") == 0
+        assert (
+            Web3.fromWei(token_contract.balanceOf(account.address), "ether")
+            == starting_token_balance
+        )
+        pass
+
     # Assert contract balance is 0, token returned. Assert user balance == starting balance, tokens returned.
-    if RNG % 6 != 0:
+    elif RNG % 6 != 0:
         assert Web3.fromWei(token_contract.balanceOf(RR.address), "ether") == 0
         assert (
             Web3.fromWei(token_contract.balanceOf(account.address), "ether")
@@ -125,3 +136,18 @@ def test_transfer(accounts):
 
 def test_chain_reverted(accounts):
     assert accounts[0].balance() == accounts[1].balance()
+
+
+# def test_mapping_initialization(default_deploy_and_mock):
+
+#     (
+#         account,
+#         mockVRF,
+#         RR,
+#         DAI,
+#         amount,
+#         token_contract,
+#         starting_token_balance,
+#     ) = default_deploy_and_mock
+
+#     # RR.

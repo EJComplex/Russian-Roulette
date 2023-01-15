@@ -155,57 +155,72 @@ def deploy(account, contract, vrfCoordinator, link, keyhash, fee, publish_source
 
 
 def main():
-    account = accounts.add(config["wallets"]["from_key"])
+    # account = accounts.add(config["wallets"]["from_key"])
+    account = get_account(index=-2)
     DAI = config["networks"][network.show_active()]["dai"]
     amount = Web3.toWei(100, "ether")
 
-    # mockVRF = deployMock(VRFCoordinatorMock)
+    mockVRF = deployMock(account, VRFCoordinatorMock)
+    # print(type(mockVRF))
 
-    # RR = deploy(
-    #     account,
-    #     RussianRoulette,
-    #     config["networks"][network.show_active()]["vrf_coordinator"],
-    #     config["networks"][network.show_active()]["link"],
-    #     config["networks"][network.show_active()]["keyhash"],
-    #     Web3.toWei(config["networks"][network.show_active()]["fee"], "ether"),
-    #     publish_source=True,
-    # )
-
-    RR = Contract.from_abi(
-        RussianRoulette._name,
-        "0x200c3D8b240391D06ea3f96cF31C79Ba6458CDa8",
-        RussianRoulette.abi,
+    RR = deploy(
+        account,
+        RussianRoulette,
+        mockVRF.address,
+        config["networks"][network.show_active()]["link"],
+        config["networks"][network.show_active()]["keyhash"],
+        Web3.toWei(config["networks"][network.show_active()]["fee"], "ether"),
+        publish_source=False,
     )
 
-    txFund = fundWithLink(account, RR, Web3.toWei(1, "ether"))
+    # print(RR.requestIdToSender(request_id))
+
+    # print(RR.burnAddress())
+
+    # RR = Contract.from_abi(
+    #     RussianRoulette._name,
+    #     "0x200c3D8b240391D06ea3f96cF31C79Ba6458CDa8",
+    #     RussianRoulette.abi,
+    # )
+
+    # txFund = fundWithLink(account, RR, Web3.toWei(1, "ether"))
+    txFund = fundWithLink(
+        account,
+        RR,
+        Web3.toWei(config["networks"][network.show_active()]["fee"], "ether"),
+    )
 
     txApprove = approveToken(account, DAI, RR.address, 10 * amount)
 
-    i = 0
-    while i < 10:
-        txPull = pull(account, RR, amount, DAI)
-        i += 1
+    # i = 0
+    # while i < 10:
+    #     txPull = pull(account, RR, amount, DAI)
+    #     i += 1
 
-    # STATIC_RNG = 601
+    txPull = pull(account, RR, amount, DAI)
+
+    STATIC_RNG = 601
     request_id = txPull.events["RequestRandomness"]["requestId"]
-    print(request_id)
+    # # print(request_id)
 
-    # txRNG = mockVRF.callBackWithRandomness(
-    #    request_id, STATIC_RNG, RR.address, {"from": account}
+    txRNG = mockVRF.callBackWithRandomness(
+        request_id, STATIC_RNG, RR.address, {"from": account}
+    )
+
+    print(RR.requestIdToSender(request_id))
+
+    # txPull.wait(10)
+
+    # token_contract = interface.IERC20(DAI)
+    # print(
+    #     f"RR DAI balance is {Web3.fromWei(token_contract.balanceOf(RR.address), 'ether')}"
     # )
 
-    txPull.wait(10)
+    # print(
+    #     f"User DAI balance is {Web3.fromWei(token_contract.balanceOf(account.address), 'ether')}"
+    # )
 
-    token_contract = interface.IERC20(DAI)
-    print(
-        f"RR DAI balance is {Web3.fromWei(token_contract.balanceOf(RR.address), 'ether')}"
-    )
-
-    print(
-        f"User DAI balance is {Web3.fromWei(token_contract.balanceOf(account.address), 'ether')}"
-    )
-
-    print()
+    # print()
 
 
 # # Need to update deploy and pull to be basic functionality. Create unit and inegration tests.
