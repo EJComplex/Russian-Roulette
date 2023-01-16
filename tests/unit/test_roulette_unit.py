@@ -1,9 +1,6 @@
 from scripts.helpful_scripts import get_account
 from scripts.deploy_and_pull import deploy, deployMock, fundWithLink, approveToken, pull
-from brownie import (
-    network,
-    config,
-)
+from brownie import network, config, exceptions
 
 
 from web3 import Web3
@@ -58,12 +55,7 @@ def isolation(fn_isolation):
     pass
 
 
-# test a random number that is divisible by 6. User should lose amount in, contract should burn amount in.
-# mainnet-fork with index=-2 unlocked
-# tested token is DAI
-# @pytest.mark.require_network("mainnet-fork")
-@pytest.mark.parametrize("RNG", [600, 601, 0])
-def test_pull(default_deploy_and_mock, RNG, chain):
+def test_pull(default_deploy_and_mock):
     # Arrange
 
     (
@@ -78,8 +70,119 @@ def test_pull(default_deploy_and_mock, RNG, chain):
 
     # Act
     txPull = pull(account, RR, amount, DAI)
+
+    assert "requestId" in list(txPull.events["RequestRandomness"].keys())
+
+    # request_id = txPull.events["RequestRandomness"]["requestId"]
+
+    # Assert contract balance == amount in. Assert user balance is amount in less.
+    assert (
+        Web3.fromWei(token_contract.balanceOf(RR.address), "ether")
+        == config["networks"][network.show_active()]["amount_in"]
+    )
+    assert (
+        starting_token_balance
+        - Web3.fromWei(token_contract.balanceOf(account.address), "ether")
+    ) == config["networks"][network.show_active()]["amount_in"]
+
+
+def test_return_token(default_deploy_and_mock, chain):
+    # Arrange
+
+    (
+        account,
+        mockVRF,
+        RR,
+        DAI,
+        amount,
+        token_contract,
+        starting_token_balance,
+    ) = default_deploy_and_mock
+
+    # Act
+    txPull = pull(account, RR, amount, DAI)
+
+    request_id = txPull.events["RequestRandomness"]["requestId"]
+
+    # has not been 50 blocks yet
+    with pytest.raises(exceptions.VirtualMachineError):
+        txReturn = RR.returnToken(request_id, {"from": account})
+
+    # > 50 blocks waited
+    chain.mine(51)
+    txReturn = RR.returnToken(request_id, {"from": account})
+
+    assert Web3.fromWei(token_contract.balanceOf(RR.address), "ether") == 0
+    assert (
+        Web3.fromWei(token_contract.balanceOf(account.address), "ether")
+        == starting_token_balance
+    )
+
+
+def test_return_token_2(default_deploy_and_mock, chain):
+    # Arrange
+
+    (
+        account,
+        mockVRF,
+        RR,
+        DAI,
+        amount,
+        token_contract,
+        starting_token_balance,
+    ) = default_deploy_and_mock
+
+    # Act
+    txPull = pull(account, RR, amount, DAI)
+
+    request_id = txPull.events["RequestRandomness"]["requestId"]
+
+    RNG = 601
+    txRNG = mockVRF.callBackWithRandomness(
+        request_id, RNG, RR.address, {"from": account}
+    )
+
+    chain.mine(51)
+
+    # RNG was successful, so requestIdToRandomnessZero is False
+    with pytest.raises(exceptions.VirtualMachineError):
+        txReturn = RR.returnToken(request_id, {"from": account})
+
+
+# test a random number that is divisible by 6. User should lose amount in, contract should burn amount in.
+# mainnet-fork with index=-2 unlocked
+# tested token is DAI
+# @pytest.mark.require_network("mainnet-fork")
+@pytest.mark.parametrize("RNG", [600, 601, 0])
+def test_full(default_deploy_and_mock, RNG, chain):
+    # Arrange
+
+    (
+        account,
+        mockVRF,
+        RR,
+        DAI,
+        amount,
+        token_contract,
+        starting_token_balance,
+    ) = default_deploy_and_mock
+
+    # Assert default setting is false
+    # assert RR.requestIdToRandomnessZero(request_id) == False
+
+    # Act
+    txPull = pull(account, RR, amount, DAI)
     # STATIC_RNG = 601
     request_id = txPull.events["RequestRandomness"]["requestId"]
+
+    # Assert account is mapped
+    assert RR.requestIdToSender(request_id) == account.address
+    assert RR.requestIdToToken(request_id) == token_contract.address
+    assert RR.requestIdToAmount(request_id) == amount
+    assert RR.requestIdToBlockNumber(request_id) == txPull.block_number
+
+    # Assert default setting is false
+    assert RR.requestIdToRandomnessZero(request_id) == True
 
     # Assert contract balance == amount in. Assert user balance is amount in less.
     assert (
@@ -125,6 +228,12 @@ def test_pull(default_deploy_and_mock, RNG, chain):
             starting_token_balance
             - Web3.fromWei(token_contract.balanceOf(account.address), "ether")
         ) == config["networks"][network.show_active()]["amount_in"]
+
+    zeroAddress = "0x0000000000000000000000000000000000000000"
+    assert RR.requestIdToSender(request_id) == zeroAddress
+    assert RR.requestIdToToken(request_id) == zeroAddress
+    assert RR.requestIdToAmount(request_id) == zeroAddress
+    assert RR.requestIdToBlockNumber(request_id) == zeroAddress
 
 
 # test the fn_isolation works
