@@ -89,7 +89,9 @@ def approveToken(account, tokenAddress, approveAddress, amount):
 def fundWithLink(account, contractAddress, amount):
     # account = get_account(index=index)
     # account = accounts.add(config["wallets"]["from_key"])
-    link = interface.IERC20(config["networks"][network.show_active()]["link"])
+    link = interface.LinkTokenInterface(
+        config["networks"][network.show_active()]["link"]
+    )
     tx = link.transfer(contractAddress, amount, {"from": account})
     return tx
 
@@ -173,6 +175,10 @@ def main():
         publish_source=False,
     )
 
+    # daiToken = interface.IERC20(DAI)
+    # tx = daiToken.transfer(RR.address, amount, {"from": account})
+    # tx.wait(1)
+
     # print(RR.requestIdToSender(request_id))
 
     # print(RR.burnAddress())
@@ -223,7 +229,7 @@ def main():
     # print()
 
 
-# # Need to update deploy and pull to be basic functionality. Create unit and inegration tests.
-# # Need to redeploy since v2 contracts are set in constructor
-# # Need to add to contract where if random fails, then funds returned
-# # How is the link token being approved?
+# Need to update deploy and pull to be basic functionality. Create unit and inegration tests.
+# Need to redeploy since v2 contracts are set in constructor
+# Need to add to contract where if random fails, then funds returned
+# How is the link token being approved?
